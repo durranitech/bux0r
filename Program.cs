@@ -1,42 +1,35 @@
-﻿using System.Management;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using Microsoft.Management.Infrastructure;
 
-ManagementScope ms = new ManagementScope("\\\\.\\root\\HP\\InstrumentedBIOS");
 
-ms.Connect();
-ManagementObjectSearcher searcher =new ManagementObjectSearcher("SELECT * FROM HP_BIOSPassword");
-searcher.Scope = ms;
+// USB Legacy Port Charging | Enable
 
-foreach (ManagementObject obj in searcher.Get())
+var cimNamspace = "//./root/HP/InstrumentedBIOS";
+var cimClass = "HP_BIOSSettingInterface";
+var cimMethod = "SetBIOSSetting";
+var paramCollection = new CimMethodParametersCollection
 {
-    foreach (var prop in obj.Properties) {
-        
-        Console.WriteLine($"{prop.Name}:{prop.Value}");    
-    }
-    Console.WriteLine("\n");
-    // show the service
-    //Console.WriteLine(service.ToString());
-}
+    CimMethodParameter.Create("Name", "Setup Password", CimFlags.None),
+    CimMethodParameter.Create("Password", "<utf-16/>", CimFlags.None),
+    CimMethodParameter.Create("Value", "<utf-16/>", CimFlags.None)
+};
 
+paramCollection["Password"].Value = "<utf-16/>Abcd";
 
-//string query = "SELECT * FROM Win32_OperatingSystem";
-//ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
-
-//foreach (ManagementObject obj in searcher.Get())
-//{
-//    Console.WriteLine("OS Name: " + obj["Caption"]);
-//    Console.WriteLine("Version: " + obj["Version"]);
-//    Console.WriteLine("Architecture: " + obj["OSArchitecture"]);
-//}
-return;
+var session = CimSession.Create(null);
+var instance = session.EnumerateInstances(cimNamspace, cimClass).First();
 
 var charset = Enumerable.Range(0, 127)
     .Select(x => (char)x)
-    .Where(x => char.IsLetterOrDigit(x) || char.IsPunctuation(x))
+    .Where(x => char.IsLetterOrDigit(x))
     .ToList();
 
 var max = 8;
 var min = 4;
 var combos = new List<string>() { "" };
+int counter = 0;
+Stopwatch sw = Stopwatch.StartNew();
 for (var depth = 1; depth <= max; depth++)
 {
     var newcombos = new List<string>();
@@ -47,7 +40,22 @@ for (var depth = 1; depth <= max; depth++)
             var token = $"{combo}{c}";
             if (token.Length >= min)
             {
-                Console.WriteLine(token);
+                if (counter % 1000 == 0)
+                {
+                    Console.WriteLine($"{counter} in {sw.Elapsed.ToString()}");
+                    sw.Restart();
+                }
+                counter++;
+                paramCollection["Password"].Value = $"<utf-16/>{token}";
+                var go = session.InvokeMethod(instance, cimMethod, paramCollection);
+                if (go.OutParameters["Return"].Value.ToString() == "6")
+                {
+                }
+                else
+                {
+                    Console.WriteLine($"Valid {token} {go.OutParameters["Return"].Value.ToString()}");
+                    return;
+                }
             }
             newcombos.Add(token);
         }
