@@ -1,12 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.Management.Infrastructure;
 
 
 // USB Legacy Port Charging | Enable
 
-var cimNamspace = "//./root/HP/InstrumentedBIOS";
-var cimClass = "HP_BIOSSettingInterface";
 var cimMethod = "SetBIOSSetting";
 var paramCollection = new CimMethodParametersCollection
 {
@@ -18,7 +15,9 @@ var paramCollection = new CimMethodParametersCollection
 paramCollection["Password"].Value = "<utf-16/>Abcd";
 
 var session = CimSession.Create(null);
-var instance = session.EnumerateInstances(cimNamspace, cimClass).First();
+var instance = session
+    .EnumerateInstances("//./root/HP/InstrumentedBIOS", "HP_BIOSSettingInterface")
+    .First();
 
 var charset = Enumerable.Range(0, 127)
     .Select(x => (char)x)
@@ -30,30 +29,22 @@ var min = 4;
 var combos = new List<string>() { "" };
 int counter = 0;
 Stopwatch sw = Stopwatch.StartNew();
-for (var depth = 1; depth <= max; depth++)
-{
+for (var depth = 1; depth <= max; depth++) {
     var newcombos = new List<string>();
-    foreach (var combo in combos)
-    {
-        foreach (var c in charset)
-        {
+    foreach (var combo in combos) {
+        foreach (var c in charset) {
             var token = $"{combo}{c}";
-            if (token.Length >= min)
-            {
-                if (counter % 1000 == 0)
-                {
-                    Console.WriteLine($"{counter} in {sw.Elapsed.ToString()}");
+            if (token.Length >= min) {
+                if (counter % 1000 == 0) {
+                    Console.WriteLine($"{counter} in {sw.Elapsed}");
                     sw.Restart();
                 }
                 counter++;
                 paramCollection["Password"].Value = $"<utf-16/>{token}";
                 var go = session.InvokeMethod(instance, cimMethod, paramCollection);
-                if (go.OutParameters["Return"].Value.ToString() == "6")
-                {
-                }
-                else
-                {
-                    Console.WriteLine($"Valid {token} {go.OutParameters["Return"].Value.ToString()}");
+                if (go.OutParameters["Return"].Value.ToString() == "6") {
+                } else {
+                    Console.WriteLine($"Valid {token} {go.OutParameters["Return"].Value}");
                     return;
                 }
             }
